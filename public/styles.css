@@ -168,6 +168,10 @@ svg { flex: none; }
 .chip:hover { border-color: var(--text-3); color: var(--text); }
 .chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
 
+.chip--hero { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); color: var(--accent-strong); }
+.chip--hero[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.tag--hero { background: var(--accent-soft); color: var(--accent-strong); font-weight: 650; }
+
 .summary {
   display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
   margin-top: var(--s3); min-height: 44px; color: var(--text-2); font-size: .875rem;

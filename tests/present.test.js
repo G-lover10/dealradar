@@ -130,3 +130,23 @@ test('ageLabel formats minutes, hours and days', () => {
   assert.equal(ageLabel(hoursAgo(1), NOW), '1 hour ago');
   assert.equal(ageLabel(hoursAgo(24), NOW), '1 day ago');
 });
+
+test('first-responder items keep their eligibility and verification note', async () => {
+  const { openDb } = await import('../src/db.js');
+  const { storeItems } = await import('../src/ingest.js');
+  const { listItems } = await import('../src/present.js');
+  const now = new Date('2026-11-13T18:00:00Z');
+  const db = openDb();
+  const source = { id: 's', name: 'S', allowed_domains: ['example.com'] };
+  const base = { kind: 'deal', price_cents: 1000, posted_at: '2026-11-13T12:00:00Z', source_url: 'https://feed.example.com/x' };
+  storeItems(db, source, [
+    { ...base, external_id: '1', title: 'Responder boots', url: 'https://shop.example.com/a', eligibility: 'first_responder', verification: 'ID check at checkout' },
+    { ...base, external_id: '2', title: 'Public boots', url: 'https://shop.example.com/b' },
+    { ...base, external_id: '3', title: 'Odd value', url: 'https://shop.example.com/c', eligibility: 'vip' },
+  ], now);
+  const byTitle = Object.fromEntries(listItems(db, 'deal', now).map((i) => [i.title, i]));
+  assert.equal(byTitle['Responder boots'].eligibility, 'first_responder');
+  assert.equal(byTitle['Responder boots'].verification, 'ID check at checkout');
+  assert.equal(byTitle['Public boots'].eligibility, 'everyone');
+  assert.equal(byTitle['Odd value'].eligibility, 'everyone');
+});
