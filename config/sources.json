@@ -1,0 +1,25 @@
+{
+  "refresh_cooldown_seconds": 60,
+  "fetch_interval_minutes": 120,
+  "max_items_per_fetch": 200,
+  "sources": [
+    {
+      "id": "sample-a",
+      "name": "Sample feed A",
+      "adapter": "fixture",
+      "enabled": true,
+      "sample": true,
+      "file": "fixtures/sample-a.json",
+      "allowed_domains": ["example.com"]
+    },
+    {
+      "id": "sample-b",
+      "name": "Sample feed B",
+      "adapter": "fixture",
+      "enabled": true,
+      "sample": true,
+      "file": "fixtures/sample-b.json",
+      "allowed_domains": ["example.com"]
+    }
+  ]
+}

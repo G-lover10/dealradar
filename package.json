@@ -1,0 +1,12 @@
+{
+  "name": "dealradar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deal and trip price finder. Every row is a lead, not a verified checkout price.",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test"
+  }
+}
