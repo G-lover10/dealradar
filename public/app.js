@@ -29,7 +29,7 @@ const ICONS = {
   empty: '<circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/>',
 };
 
-const state = { kind: 'deal', filter: 'all', q: '', sort: 'price', showHidden: false, items: [], loading: true, error: '' };
+const state = { kind: 'deal', filter: 'all', responder: false, q: '', sort: 'price', showHidden: false, items: [], loading: true, error: '' };
 const prefs = loadPrefs();
 const seenAtLoad = new Set(prefs.seen);
 const $ = (id) => document.getElementById(id);
@@ -136,6 +136,9 @@ function card(item) {
   for (const cost of item.extra_costs) {
     tags.append(el('li', 'tag tag--cost', cost.amount_cents != null ? `${cost.label} ${money(cost.amount_cents)}` : `${cost.label} (amount not listed)`));
   }
+  if (item.eligibility === 'first_responder') {
+    tags.append(el('li', 'tag tag--hero', item.verification ? `First responder · ${item.verification}` : 'First responder'));
+  }
   if (item.expires_at) tags.append(el('li', 'tag tag--soon', endsLabel(item.expires_at)));
   if (!item.stock_checked) tags.append(el('li', 'tag', 'Not stock-checked'));
   if (item.affiliate) tags.append(el('li', 'tag', 'Affiliate link'));
@@ -201,6 +204,7 @@ function visibleItems() {
   const list = state.items.filter((item) => {
     if (!state.showHidden && prefs.hidden.includes(item.id)) return false;
     if (state.filter !== 'all' && (item.kind === 'trip' ? item.trip_type : item.category) !== state.filter) return false;
+    if (state.responder && item.eligibility !== 'first_responder') return false;
     if (q && !`${item.title} ${item.summary} ${item.merchant}`.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -212,8 +216,7 @@ function visibleItems() {
 
 function renderChips() {
   const chips = $('chips');
-  chips.replaceChildren(
-    ...FILTERS[state.kind].map(([value, label]) => {
+  const filterChips = FILTERS[state.kind].map(([value, label]) => {
       const chip = el('button', 'chip', label);
       chip.type = 'button';
       chip.setAttribute('aria-pressed', String(state.filter === value));
@@ -223,8 +226,22 @@ function renderChips() {
         render();
       });
       return chip;
-    }),
-  );
+  });
+  // "All" first, then the responder toggle so it is visible on a phone without scrolling.
+  chips.replaceChildren(filterChips[0], responderChip(), ...filterChips.slice(1));
+}
+
+function responderChip() {
+  const chip = el('button', 'chip chip--hero', 'First responder');
+  chip.type = 'button';
+  chip.setAttribute('aria-pressed', String(state.responder));
+  chip.title = 'Show only discounts for fire, police, and EMS';
+  chip.addEventListener('click', () => {
+    state.responder = !state.responder;
+    renderChips();
+    render();
+  });
+  return chip;
 }
 
 function render() {
@@ -257,7 +274,7 @@ function render() {
   );
 
   if (!list.length) {
-    const filtered = state.q || state.filter !== 'all';
+    const filtered = state.q || state.filter !== 'all' || state.responder;
     let action = null;
     if (filtered) {
       action = el('button', 'btn btn--quiet', 'Clear search and filters');
@@ -265,6 +282,7 @@ function render() {
       action.addEventListener('click', () => {
         state.q = '';
         state.filter = 'all';
+        state.responder = false;
         $('search').value = '';
         renderChips();
         render();

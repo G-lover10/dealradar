@@ -10,7 +10,9 @@
       "enabled": true,
       "sample": true,
       "file": "fixtures/sample-a.json",
-      "allowed_domains": ["example.com"]
+      "allowed_domains": [
+        "example.com"
+      ]
     },
     {
       "id": "sample-b",
@@ -19,7 +21,20 @@
       "enabled": true,
       "sample": true,
       "file": "fixtures/sample-b.json",
-      "allowed_domains": ["example.com"]
+      "allowed_domains": [
+        "example.com"
+      ]
+    },
+    {
+      "id": "sample-responder",
+      "name": "Sample responder feed",
+      "adapter": "fixture",
+      "enabled": true,
+      "sample": true,
+      "file": "fixtures/sample-responder.json",
+      "allowed_domains": [
+        "example.com"
+      ]
     }
   ]
 }
