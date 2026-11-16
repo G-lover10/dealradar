@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="Deals and trips, lowest posted price first. Every price is a lead with its source and age shown.">
-  <title>DealRadar: deals and trips, honestly labeled</title>
+  <meta name="description" content="Type a product and see the lowest price people have posted. Deals and trips, with the source and age on every card.">
+  <title>DealRadar: lowest posted prices on deals and trips</title>
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
 </head>
@@ -14,72 +14,51 @@
 
   <header class="topbar">
     <div class="wrap topbar__row">
-      <a class="brand" href="/" aria-label="DealRadar home">
-        <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
-          <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2" opacity=".35"/>
-          <circle cx="16" cy="16" r="7.5" fill="none" stroke="currentColor" stroke-width="2" opacity=".6"/>
-          <path d="M16 16 26 8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-          <circle cx="16" cy="16" r="2.6" fill="currentColor"/>
-        </svg>
-        <span class="brand__name">DealRadar</span>
-      </a>
-      <button class="btn btn--quiet" id="refresh" type="button">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 10a6.5 6.5 0 1 1-1.9-4.6M16.5 3.5v3.2h-3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Refresh</span>
-      </button>
-    </div>
-    <div class="wrap">
+      <a class="brand" href="/">DealRadar</a>
       <div class="tabs" role="tablist" aria-label="Section">
         <button class="tab" role="tab" id="tab-deal" data-kind="deal" aria-selected="true" aria-controls="board" type="button">Deals</button>
         <button class="tab" role="tab" id="tab-trip" data-kind="trip" aria-selected="false" aria-controls="board" tabindex="-1" type="button">Trips</button>
       </div>
+      <button class="btn btn--navy" id="refresh" type="button">Refresh</button>
     </div>
   </header>
 
-  <div class="wrap">
-    <div class="banner banner--sample" id="sample-banner" hidden>
-      <strong>Sample data.</strong> These listings are made up to show how the board works. No live sources are connected yet.
+  <div class="wrap page">
+    <div class="heading">
+      <h1 id="page-title">Deals</h1>
+      <span class="heading__count" id="count" aria-live="polite"></span>
     </div>
 
-    <section class="controls" aria-label="Search and filters">
-      <div class="controls__row">
-        <label class="field field--search">
-          <span class="sr-only">Search</span>
-          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m13.2 13.2 3.6 3.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <input id="search" type="search" placeholder="Search deals" autocomplete="off" enterkeyhint="search">
-        </label>
-        <label class="field field--sort">
-          <span class="sr-only">Sort by</span>
-          <select id="sort">
-            <option value="price">Lowest price</option>
-            <option value="newest">Newest</option>
-            <option value="ending">Ending soon</option>
-          </select>
-        </label>
-      </div>
-      <div class="chips" id="chips" role="group" aria-label="Filter"></div>
-    </section>
-
-    <p class="notice">
-      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 9v4.5M10 6.4v.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      <span>Every price here is a <strong>lead</strong>, not a verified checkout price. Open the link to confirm before you buy.</span>
-    </p>
-
-    <div class="summary" aria-live="polite">
-      <span id="count"></span>
-      <button class="link" id="toggle-hidden" type="button" hidden></button>
+    <div class="countdown" id="countdown" hidden>
+      <span class="countdown__name" id="countdown-name"></span>
+      <span class="countdown__time" id="countdown-time"></span>
     </div>
+
+    <form class="search" id="search-form" role="search">
+      <label class="sr-only" for="search">Search</label>
+      <input id="search" type="search" placeholder="Type a product, like security cameras" autocomplete="off" enterkeyhint="search">
+      <button class="btn btn--ink" type="submit">Search</button>
+    </form>
+
+    <p class="fineprint" id="fineprint"></p>
+
+    <div class="pills" id="pills" role="group" aria-label="Sort and filter"></div>
+
+    <p class="alert" id="source-alert" role="status" hidden></p>
+    <p class="sample" id="sample-banner" hidden>Sample listings, made up to show the layout. No live feeds are connected yet.</p>
 
     <main id="board" class="board" role="tabpanel" aria-labelledby="tab-deal" tabindex="-1"></main>
+
+    <button class="link" id="toggle-done" type="button" hidden></button>
   </div>
 
   <footer class="footer">
     <div class="wrap">
-      <h2 class="footer__title">Sources</h2>
       <ul class="sources" id="sources"></ul>
-      <p class="footer__text" id="as-of"></p>
-      <p class="footer__text">
-        Links marked “Affiliate link” may earn us a commission if you buy. Commission never changes the order of results.
+      <p id="as-of"></p>
+      <p>
+        Prices are the lowest posted on the feeds we read, not a promise of the best price anywhere.
+        Links marked “Affiliate link” may earn us a commission. Commission never changes the order.
         Percent-off figures compare against the seller’s own “was” price, which can be inflated.
       </p>
     </div>

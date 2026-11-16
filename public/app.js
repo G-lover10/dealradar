@@ -1,11 +1,13 @@
 // DealRadar board. Source text is only ever written with textContent, never as HTML.
 
-const PREFS_KEY = 'dealradar-prefs-v1';
-const FILTERS = {
-  deal: [['all', 'All'], ['Electronics', 'Electronics'], ['Home', 'Home'], ['Outdoors', 'Outdoors'], ['Apparel', 'Apparel'], ['Tools', 'Tools'], ['Other', 'Other']],
-  trip: [['all', 'All'], ['ski', 'Ski'], ['lifts', 'Near the lifts'], ['beach', 'Beach'], ['cruise', 'Cruise'], ['stays', 'Stays']],
+const PREFS_KEY = 'dealradar-prefs-v2';
+const SORTS = [['price', 'Lowest'], ['newest', 'Newest'], ['percent', 'Deepest %'], ['ending', 'Ending soon']];
+const TRIP_TYPES = [['all', 'All'], ['ski', 'Ski'], ['lifts', 'Near the lifts'], ['beach', 'Beach'], ['cruise', 'Cruise'], ['stays', 'Stays']];
+const TRIP_LABEL = Object.fromEntries(TRIP_TYPES);
+const FINEPRINT = {
+  deal: 'Lowest posted on the feeds we read. The price can change in the cart. Open the link before you pay.',
+  trip: 'Package prices and specials that people post. The price can change in the cart. Open the link before you pay.',
 };
-const TRIP_LABEL = Object.fromEntries(FILTERS.trip);
 
 // Static icon paths (24x24, stroke). Not source data.
 const ICONS = {
@@ -20,26 +22,20 @@ const ICONS = {
   beach: '<path d="M12 21V9M12 9c-3-4-7-3-9 0 3-1 6-1 9 0zm0 0c3-4 7-3 9 0-3-1-6-1-9 0zM4 21h16"/>',
   cruise: '<path d="M3 15h18l-2.5 5h-13zM6 15V9h12v6M10 9V5h4v4"/>',
   stays: '<path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7M3 15h18M7 9V6h10v3"/>',
-  trust: {
-    lead: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16v.2"/>',
-    confirmed: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16 9.5"/>',
-    expected: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  },
-  warn: '<path d="M12 4 2.5 20h19zM12 10v4.5M12 17v.2"/>',
-  empty: '<circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/>',
+  save: '<path d="M6 4h12v16l-6-4.5L6 20z"/>',
+  done: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
 };
 
-const state = { kind: 'deal', filter: 'all', responder: false, q: '', sort: 'price', showHidden: false, items: [], loading: true, error: '' };
+const state = { kind: 'deal', sort: 'price', type: 'all', saved: false, responder: false, q: '', showDone: false, items: [], loading: true, error: '' };
 const prefs = loadPrefs();
-const seenAtLoad = new Set(prefs.seen);
 const $ = (id) => document.getElementById(id);
 
 function loadPrefs() {
   try {
     const p = JSON.parse(localStorage.getItem(PREFS_KEY)) ?? {};
-    return { hidden: Array.isArray(p.hidden) ? p.hidden : [], seen: Array.isArray(p.seen) ? p.seen : [] };
+    return { saved: Array.isArray(p.saved) ? p.saved : [], done: Array.isArray(p.done) ? p.done : [] };
   } catch {
-    return { hidden: [], seen: [] };
+    return { saved: [], done: [] };
   }
 }
 function savePrefs() {
@@ -49,6 +45,9 @@ function savePrefs() {
     /* Private mode or storage full: the board still works. */
   }
 }
+function toggleIn(list, id) {
+  return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+}
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -56,16 +55,10 @@ function el(tag, className, text) {
   if (text != null) node.textContent = text;
   return node;
 }
-function icon(paths, className) {
+function icon(paths) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '1.8');
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-  svg.setAttribute('aria-hidden', 'true');
-  if (className) svg.setAttribute('class', className);
+  const attrs = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' };
+  for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
   svg.innerHTML = paths; // static strings from ICONS only
   return svg;
 }
@@ -75,6 +68,9 @@ function money(cents) {
 }
 function when(iso) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
+}
+function shortAge(age) {
+  return age.replace(' ago', '');
 }
 function endsLabel(iso) {
   const hours = (new Date(iso) - Date.now()) / 3_600_000;
@@ -89,210 +85,199 @@ function safeHref(url) {
     return '#';
   }
 }
-
-function card(item) {
-  const hidden = prefs.hidden.includes(item.id);
-  const node = el('article', 'card' + (hidden ? ' is-hidden' : ''));
-  const group = item.kind === 'trip' ? item.trip_type ?? 'stays' : item.category;
-
-  const tile = el('div', `tile tile--${group}`);
-  tile.append(icon(ICONS[group] ?? ICONS.Other));
-  const badges = el('div', 'tile__badges');
-  const trust = el('span', `badge badge--${item.trust.status}`);
-  trust.title = item.trust.note;
-  trust.append(icon(ICONS.trust[item.trust.status]), el('span', '', item.trust.label));
-  badges.append(trust);
-  if (!seenAtLoad.has(item.id)) badges.append(el('span', 'badge badge--new', 'New'));
-  tile.append(badges);
-
-  const body = el('div', 'card__body');
-  const groupLabel = item.kind === 'trip' ? TRIP_LABEL[group] ?? 'Trip' : item.category;
-  body.append(el('p', 'card__meta', [item.merchant, groupLabel].filter(Boolean).join(' · ')));
-
-  const title = el('h3', 'card__title');
-  const link = el('a', '', item.title);
-  link.href = safeHref(item.url);
-  link.rel = (item.affiliate ? 'sponsored ' : '') + 'noopener noreferrer';
-  link.target = '_blank';
-  title.append(link);
-  body.append(title);
-  if (item.summary) body.append(el('p', 'card__summary', item.summary));
-
-  const price = el('div', 'price');
-  price.append(el('span', 'price__now', money(item.price_cents)));
-  if (item.was_price_cents) {
-    const was = el('span', 'price__was', money(item.was_price_cents));
-    was.setAttribute('aria-label', `Stated was price ${money(item.was_price_cents)}`);
-    const off = el('span', 'price__off');
-    off.append(el('strong', '', `${item.percent_off_stated}% off`), document.createTextNode(' vs stated was price'));
-    price.append(was, off);
-  }
-  if (item.all_in_cents != null) {
-    price.append(el('span', 'price__allin', `About ${money(item.all_in_cents)} all-in${item.has_unknown_costs ? ', plus fees not listed' : ''}`));
-  }
-  body.append(price);
-
-  const tags = el('ul', 'tags');
-  for (const cost of item.extra_costs) {
-    tags.append(el('li', 'tag tag--cost', cost.amount_cents != null ? `${cost.label} ${money(cost.amount_cents)}` : `${cost.label} (amount not listed)`));
-  }
-  if (item.eligibility === 'first_responder') {
-    tags.append(el('li', 'tag tag--hero', item.verification ? `First responder · ${item.verification}` : 'First responder'));
-  }
-  if (item.expires_at) tags.append(el('li', 'tag tag--soon', endsLabel(item.expires_at)));
-  if (!item.stock_checked) tags.append(el('li', 'tag', 'Not stock-checked'));
-  if (item.affiliate) tags.append(el('li', 'tag', 'Affiliate link'));
-  body.append(tags);
-
-  if (item.cart_warning) {
-    const warn = el('p', 'warnline');
-    warn.append(icon(ICONS.warn), el('span', '', item.cart_warning));
-    body.append(warn);
-  }
-
-  const prov = el('div', 'prov');
-  const posted = el('p', '');
-  posted.append(document.createTextNode(`Posted ${item.age} · `));
-  const time = el('time', '', when(item.posted_at));
-  time.dateTime = item.posted_at;
-  posted.append(time);
-  prov.append(posted);
-  const seen = el('p', '');
-  seen.append(document.createTextNode(item.sources.length > 1 ? `Seen at ${item.sources.length} sources: ` : 'Source: '));
-  item.sources.forEach((s, i) => {
-    if (i) seen.append(document.createTextNode(', '));
-    const a = el('a', '', s.name);
-    a.href = safeHref(s.url);
-    a.rel = 'noopener noreferrer';
-    a.target = '_blank';
-    seen.append(a);
-    if (item.sources.length > 1) seen.append(document.createTextNode(` (${money(s.price_cents)}, ${s.age})`));
-  });
-  prov.append(seen);
-  prov.append(el('p', 'prov__note', item.trust.note));
-  body.append(prov);
-
-  const actions = el('div', 'card__actions');
-  const open = el('a', 'btn btn--primary', item.kind === 'trip' ? 'Open trip' : 'Open deal');
-  open.href = link.href;
-  open.rel = link.rel;
-  open.target = '_blank';
-  const hide = el('button', 'btn btn--quiet', hidden ? 'Unhide' : 'Hide');
-  hide.type = 'button';
-  hide.setAttribute('aria-label', `${hidden ? 'Unhide' : 'Hide'}: ${item.title}`);
-  hide.addEventListener('click', () => {
-    prefs.hidden = hidden ? prefs.hidden.filter((id) => id !== item.id) : [...prefs.hidden, item.id];
-    savePrefs();
-    render();
-  });
-  actions.append(open, hide);
-  body.append(actions);
-
-  node.append(tile, body);
+function outLink(node, url, affiliate) {
+  node.href = safeHref(url);
+  node.rel = (affiliate ? 'sponsored ' : '') + 'noopener noreferrer';
+  node.target = '_blank';
   return node;
 }
 
-function stateBox(kind, titleText, text, action) {
-  const box = el('div', `state${kind === 'error' ? ' state--error' : ''}`);
-  box.append(icon(kind === 'error' ? ICONS.warn : ICONS.empty), el('p', 'state__title', titleText), el('p', 'state__text', text));
+function iconButton(paths, label, pressed, onClick) {
+  const btn = el('button', 'icon-btn');
+  btn.type = 'button';
+  btn.setAttribute('aria-label', label);
+  btn.setAttribute('aria-pressed', String(pressed));
+  btn.title = label;
+  btn.append(icon(paths));
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function card(item) {
+  const done = prefs.done.includes(item.id);
+  const saved = prefs.saved.includes(item.id);
+  const group = item.kind === 'trip' ? item.trip_type ?? 'stays' : item.category;
+  const node = el('article', 'card' + (done ? ' is-done' : ''));
+
+  // Photo area with the price on it. Feeds with photos fill this; until then, a tinted tile.
+  const photo = outLink(el('a', `photo photo--art photo--${group in ICONS ? group : 'Other'}`), item.url, item.affiliate);
+  photo.setAttribute('aria-label', `${money(item.price_cents)}: ${item.title}`);
+  const art = el('span', 'photo__art');
+  art.append(icon(ICONS[group] ?? ICONS.Other));
+  const price = el('span', 'photo__price');
+  if (item.kind === 'trip') price.append(el('small', '', 'from'));
+  price.append(document.createTextNode(money(item.price_cents)));
+  const flags = el('span', 'photo__flags');
+  if (item.trust.status !== 'lead') flags.append(el('span', `flag flag--${item.trust.status}`, item.trust.label));
+  if (item.percent_off_stated) flags.append(el('span', 'flag', `${item.percent_off_stated}% off stated`));
+  if (item.expires_at) flags.append(el('span', 'flag', endsLabel(item.expires_at)));
+  photo.append(art, flags, price);
+
+  const body = el('div', 'card__body');
+  const title = el('h3', 'card__title');
+  title.append(outLink(el('a', '', item.title), item.url, item.affiliate));
+  const meta = el('p', 'card__meta');
+  const where = item.kind === 'trip' ? [item.merchant, TRIP_LABEL[group]] : [item.merchant];
+  meta.textContent = [...where.filter(Boolean), shortAge(item.age)].join(' · ');
+  if (item.eligibility === 'first_responder') {
+    meta.append(document.createTextNode(' · '), el('strong', '', 'First responder'));
+  }
+
+  const actions = el('div', 'card__actions');
+  actions.append(
+    iconButton(ICONS.save, saved ? `Remove from saved: ${item.title}` : `Save: ${item.title}`, saved, () => {
+      prefs.saved = toggleIn(prefs.saved, item.id);
+      savePrefs();
+      render();
+    }),
+    iconButton(ICONS.done, done ? `Bring back: ${item.title}` : `Mark as seen: ${item.title}`, done, () => {
+      prefs.done = toggleIn(prefs.done, item.id);
+      savePrefs();
+      render();
+    }),
+    outLink(el('a', '', item.sources.length > 1 ? `${item.sources.length} sources` : 'Thread'), item.sources[0].url, false),
+  );
+
+  body.append(title, meta, actions, details(item));
+  node.append(photo, body);
+  return node;
+}
+
+// Everything that backs the price lives here, one tap away.
+function details(item) {
+  const box = el('details', 'info');
+  box.append(el('summary', '', 'Price details'));
+  const list = el('div', 'info__list');
+  const line = (text, cls) => list.append(el('p', cls, text));
+
+  line(`${item.trust.label}: ${item.trust.note}`);
+  if (item.was_price_cents) line(`Stated was price ${money(item.was_price_cents)} (${item.percent_off_stated}% off vs stated was price).`);
+  for (const cost of item.extra_costs) {
+    line(cost.amount_cents != null ? `Plus ${cost.label.toLowerCase()}: ${money(cost.amount_cents)}` : `Plus ${cost.label.toLowerCase()}: amount not listed`);
+  }
+  if (item.all_in_cents != null) line(`About ${money(item.all_in_cents)} all-in${item.has_unknown_costs ? ', plus fees not listed' : ''}.`, 'info__warn');
+  if (item.eligibility === 'first_responder') line(`First responders only${item.verification ? `. ${item.verification}.` : '.'}`);
+  if (!item.stock_checked) line('Not stock-checked.');
+  if (item.affiliate) line('Affiliate link.');
+  if (item.summary) line(item.summary);
+
+  for (const s of item.sources) {
+    const p = el('p');
+    p.append(outLink(el('a', '', s.name), s.url, false), document.createTextNode(` · ${money(s.price_cents)} · posted ${s.age} (${when(s.posted_at)})`));
+    list.append(p);
+  }
+  box.append(list);
+  return box;
+}
+
+function stateBox(titleText, text, action) {
+  const box = el('div', 'state');
+  box.append(el('p', 'state__title', titleText), el('p', 'state__text', text));
   if (action) box.append(action);
   return box;
 }
 
 function visibleItems() {
-  const q = state.q.trim().toLowerCase();
+  const words = state.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const list = state.items.filter((item) => {
-    if (!state.showHidden && prefs.hidden.includes(item.id)) return false;
-    if (state.filter !== 'all' && (item.kind === 'trip' ? item.trip_type : item.category) !== state.filter) return false;
+    if (!state.showDone && prefs.done.includes(item.id)) return false;
+    if (state.saved && !prefs.saved.includes(item.id)) return false;
     if (state.responder && item.eligibility !== 'first_responder') return false;
-    if (q && !`${item.title} ${item.summary} ${item.merchant}`.toLowerCase().includes(q)) return false;
-    return true;
+    if (state.kind === 'trip' && state.type !== 'all' && item.trip_type !== state.type) return false;
+    const hay = `${item.title} ${item.summary} ${item.merchant}`.toLowerCase();
+    return words.every((w) => hay.includes(w));
   });
-  if (state.sort === 'newest') list.sort((a, b) => b.posted_at.localeCompare(a.posted_at));
-  else if (state.sort === 'ending') list.sort((a, b) => (a.expires_at ?? '9999').localeCompare(b.expires_at ?? '9999') || a.price_cents - b.price_cents);
-  else list.sort((a, b) => a.price_cents - b.price_cents);
+  const byPrice = (a, b) => a.price_cents - b.price_cents;
+  if (state.kind === 'deal' && state.sort === 'newest') list.sort((a, b) => b.posted_at.localeCompare(a.posted_at));
+  else if (state.kind === 'deal' && state.sort === 'percent') list.sort((a, b) => (b.percent_off_stated ?? 0) - (a.percent_off_stated ?? 0) || byPrice(a, b));
+  else if (state.kind === 'deal' && state.sort === 'ending') list.sort((a, b) => (a.expires_at ?? '9999').localeCompare(b.expires_at ?? '9999') || byPrice(a, b));
+  else list.sort(byPrice);
   return list;
 }
 
-function renderChips() {
-  const chips = $('chips');
-  const filterChips = FILTERS[state.kind].map(([value, label]) => {
-      const chip = el('button', 'chip', label);
-      chip.type = 'button';
-      chip.setAttribute('aria-pressed', String(state.filter === value));
-      chip.addEventListener('click', () => {
-        state.filter = value;
-        renderChips();
-        render();
-      });
-      return chip;
-  });
-  // "All" first, then the responder toggle so it is visible on a phone without scrolling.
-  chips.replaceChildren(filterChips[0], responderChip(), ...filterChips.slice(1));
-}
-
-function responderChip() {
-  const chip = el('button', 'chip chip--hero', 'First responder');
-  chip.type = 'button';
-  chip.setAttribute('aria-pressed', String(state.responder));
-  chip.title = 'Show only discounts for fire, police, and EMS';
-  chip.addEventListener('click', () => {
-    state.responder = !state.responder;
-    renderChips();
+function pill(label, pressed, onClick) {
+  const node = el('button', 'pill', label);
+  node.type = 'button';
+  node.setAttribute('aria-pressed', String(pressed));
+  node.addEventListener('click', () => {
+    onClick();
+    renderPills();
     render();
   });
-  return chip;
+  return node;
+}
+
+function renderPills() {
+  const main =
+    state.kind === 'deal'
+      ? SORTS.map(([value, label]) => pill(label, state.sort === value, () => (state.sort = value)))
+      : TRIP_TYPES.map(([value, label]) => pill(label, state.type === value, () => (state.type = value)));
+  $('pills').replaceChildren(
+    ...main,
+    el('span', 'pills__gap'),
+    pill('Saved', state.saved, () => (state.saved = !state.saved)),
+    pill('First responder', state.responder, () => (state.responder = !state.responder)),
+  );
 }
 
 function render() {
   const board = $('board');
-  const noun = state.kind === 'trip' ? 'trip' : 'deal';
+  const noun = state.kind === 'trip' ? 'trips' : 'deals';
   board.setAttribute('aria-busy', String(state.loading));
 
   if (state.loading) {
     board.replaceChildren(...Array.from({ length: 6 }, () => el('div', 'skeleton')));
-    $('count').textContent = `Loading ${noun}s…`;
+    $('count').textContent = '';
     return;
   }
   if (state.error) {
-    const retry = el('button', 'btn btn--primary', 'Try again');
+    const retry = el('button', 'btn btn--ink', 'Try again');
     retry.type = 'button';
     retry.addEventListener('click', load);
-    board.replaceChildren(stateBox('error', `We couldn’t load ${noun}s`, state.error, retry));
+    board.replaceChildren(stateBox(`We couldn’t load ${noun}`, state.error, retry));
     $('count').textContent = '';
     return;
   }
 
   const list = visibleItems();
-  const hiddenCount = state.items.filter((i) => prefs.hidden.includes(i.id)).length;
-  const toggle = $('toggle-hidden');
-  toggle.hidden = hiddenCount === 0;
-  toggle.textContent = state.showHidden ? 'Stop showing hidden' : `Show hidden (${hiddenCount})`;
-  $('count').textContent = `${list.length} ${noun}${list.length === 1 ? '' : 's'} · lowest posted price first`.replace(
-    'lowest posted price first',
-    { price: 'lowest posted price first', newest: 'newest first', ending: 'ending soonest first' }[state.sort],
-  );
+  $('count').textContent = String(list.length);
+  $('count').setAttribute('aria-label', `${list.length} ${noun}`);
+  const doneCount = state.items.filter((i) => prefs.done.includes(i.id)).length;
+  const toggle = $('toggle-done');
+  toggle.hidden = doneCount === 0;
+  toggle.textContent = state.showDone ? 'Stop showing seen' : `Show seen (${doneCount})`;
 
   if (!list.length) {
-    const filtered = state.q || state.filter !== 'all' || state.responder;
+    const filtered = state.q || state.saved || state.responder || state.type !== 'all';
     let action = null;
     if (filtered) {
-      action = el('button', 'btn btn--quiet', 'Clear search and filters');
+      action = el('button', 'btn btn--ghost', 'Clear search and filters');
       action.type = 'button';
       action.addEventListener('click', () => {
-        state.q = '';
-        state.filter = 'all';
-        state.responder = false;
+        Object.assign(state, { q: '', saved: false, responder: false, type: 'all' });
         $('search').value = '';
-        renderChips();
+        renderPills();
         render();
       });
     }
     board.replaceChildren(
       stateBox(
-        'empty',
-        filtered ? `No ${noun}s match` : `No ${noun}s right now`,
-        filtered ? 'Try a different word or clear the filters.' : 'Expired listings drop off on their own. Check back after the next refresh.',
+        filtered ? `No ${noun} match` : `No ${noun} right now`,
+        state.q
+          ? `Nobody has posted a price for “${state.q.trim()}” on the feeds we read. Try a shorter word.`
+          : filtered
+            ? 'Nothing fits these filters.'
+            : 'Expired listings drop off on their own. Check back after the next refresh.',
         action,
       ),
     );
@@ -308,10 +293,7 @@ async function load() {
   try {
     const res = await fetch(`/api/items?kind=${state.kind}`);
     if (!res.ok) throw new Error(`Server replied ${res.status}`);
-    const data = await res.json();
-    state.items = data.items;
-    prefs.seen = [...new Set([...prefs.seen, ...data.items.map((i) => i.id)])].slice(-2000);
-    savePrefs();
+    state.items = (await res.json()).items;
   } catch {
     state.error = 'Check your connection and try again.';
   }
@@ -324,21 +306,43 @@ async function loadStatus() {
     const res = await fetch('/api/status');
     if (!res.ok) return;
     const data = await res.json();
+    const enabled = data.sources.filter((s) => s.enabled);
+    const failed = enabled.filter((s) => s.ok === false);
     $('sample-banner').hidden = !data.sample_only;
+    $('source-alert').hidden = failed.length === 0;
+    $('source-alert').textContent = failed.length ? `${failed.map((s) => s.name).join(', ')} did not load. Other prices are still here.` : '';
     $('as-of').textContent = `Board as of ${when(data.as_of)}.`;
     $('sources').replaceChildren(
-      ...data.sources.filter((s) => s.enabled).map((s) => {
+      ...enabled.map((s) => {
         const li = el('li');
-        li.append(el('span', `dot ${s.ok === true ? 'dot--ok' : s.ok === false ? 'dot--bad' : ''}`));
-        const detail =
-          s.ok === null ? 'not fetched yet' : s.ok ? `${s.item_count} listings, fetched ${when(s.last_fetch)}` : `failed: ${s.error || 'unknown error'}`;
-        li.append(el('strong', '', s.name), el('span', '', detail));
+        const detail = s.ok === null ? 'not fetched yet' : s.ok ? `${s.item_count} listings, fetched ${when(s.last_fetch)}` : `did not load: ${s.error || 'unknown error'}`;
+        li.append(el('span', `dot ${s.ok === true ? 'dot--ok' : s.ok === false ? 'dot--bad' : ''}`), el('strong', '', s.name), el('span', '', detail));
         return li;
       }),
     );
   } catch {
     /* The board itself reports connection problems. */
   }
+}
+
+// Next big sale day, worked out from the calendar. No claims about what will be on sale.
+function nextSaleDay(now = new Date()) {
+  const events = [];
+  for (const year of [now.getFullYear(), now.getFullYear() + 1]) {
+    const nov1 = new Date(year, 10, 1);
+    const thanksgiving = 1 + ((4 - nov1.getDay() + 7) % 7) + 21; // fourth Thursday
+    events.push({ name: `Black Friday ${year}`, at: new Date(year, 10, thanksgiving + 1) });
+    events.push({ name: `Cyber Monday ${year}`, at: new Date(year, 10, thanksgiving + 4) });
+  }
+  return events.find((e) => e.at > now && e.at - now < 45 * 86_400_000) ?? null;
+}
+function renderCountdown() {
+  const event = nextSaleDay();
+  $('countdown').hidden = !event;
+  if (!event) return;
+  const mins = Math.floor((event.at - Date.now()) / 60_000);
+  $('countdown-name').textContent = event.name;
+  $('countdown-time').textContent = `${Math.floor(mins / 1440)}d ${Math.floor((mins % 1440) / 60)}h`;
 }
 
 function toast(message) {
@@ -350,16 +354,18 @@ function toast(message) {
 }
 
 function selectTab(kind) {
-  state.kind = kind;
-  state.filter = 'all';
+  Object.assign(state, { kind, type: 'all', q: '' });
   for (const tab of document.querySelectorAll('.tab')) {
     const on = tab.dataset.kind === kind;
     tab.setAttribute('aria-selected', String(on));
     tab.tabIndex = on ? 0 : -1;
   }
   $('board').setAttribute('aria-labelledby', `tab-${kind}`);
-  $('search').placeholder = kind === 'trip' ? 'Search trips' : 'Search deals';
-  renderChips();
+  $('page-title').textContent = kind === 'trip' ? 'Trips' : 'Deals';
+  $('search').value = '';
+  $('search').placeholder = kind === 'trip' ? 'Type a place, like Colorado ski' : 'Type a product, like security cameras';
+  $('fineprint').textContent = FINEPRINT[kind];
+  renderPills();
   load();
 }
 
@@ -372,39 +378,44 @@ for (const tab of document.querySelectorAll('.tab')) {
     $(`tab-${next}`).focus();
   });
 }
+$('search-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  state.q = $('search').value;
+  render();
+  $('search').blur();
+});
 $('search').addEventListener('input', (e) => {
   state.q = e.target.value;
   render();
 });
-$('sort').addEventListener('change', (e) => {
-  state.sort = e.target.value;
-  render();
-});
-$('toggle-hidden').addEventListener('click', () => {
-  state.showHidden = !state.showHidden;
+$('toggle-done').addEventListener('click', () => {
+  state.showDone = !state.showDone;
   render();
 });
 $('refresh').addEventListener('click', async () => {
   const btn = $('refresh');
   btn.disabled = true;
-  btn.classList.add('is-busy');
   try {
     const res = await fetch('/api/refresh', { method: 'POST' });
     const data = await res.json().catch(() => ({}));
     if (res.status === 429) toast(data.error ?? 'Refreshed a moment ago.');
     else if (!res.ok) toast('Refresh failed. Try again shortly.');
     else {
-      const failed = (data.results ?? []).filter((r) => !r.ok).length;
-      toast(failed ? `Refreshed. ${failed} source${failed === 1 ? '' : 's'} failed.` : 'Refreshed.');
+      toast('Refreshed.');
       await Promise.all([load(), loadStatus()]);
     }
   } catch {
     toast('Refresh failed. Check your connection.');
   }
   btn.disabled = false;
-  btn.classList.remove('is-busy');
 });
 
-renderChips();
-load();
+// Open on Trips when the address ends in #trips, so the tab can be linked to.
+$('fineprint').textContent = FINEPRINT.deal;
+renderCountdown();
 loadStatus();
+if (location.hash === '#trips') selectTab('trip');
+else {
+  renderPills();
+  load();
+}
