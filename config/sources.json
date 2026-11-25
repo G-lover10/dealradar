@@ -35,6 +35,53 @@
       "allowed_domains": [
         "example.com"
       ]
+    },
+    {
+      "id": "ebay",
+      "name": "eBay",
+      "adapter": "ebay",
+      "enabled": true,
+      "live": true,
+      "cache_minutes": 10,
+      "limit": 20,
+      "allowed_domains": [
+        "ebay.com"
+      ],
+      "image_domains": [
+        "ebayimg.com"
+      ]
+    },
+    {
+      "id": "bestbuy",
+      "name": "Best Buy",
+      "adapter": "bestbuy",
+      "enabled": false,
+      "live": true,
+      "cache_minutes": 10,
+      "limit": 20,
+      "allowed_domains": [
+        "bestbuy.com"
+      ],
+      "image_domains": [
+        "bbystatic.com"
+      ],
+      "note": "Off until the owner has read developer.bestbuy.com/legal. Its terms may not allow a price-comparison use."
+    },
+    {
+      "id": "amazon",
+      "name": "Amazon",
+      "adapter": "amazon",
+      "enabled": true,
+      "live": true,
+      "cache_minutes": 10,
+      "limit": 10,
+      "allowed_domains": [
+        "amazon.com"
+      ],
+      "image_domains": [
+        "media-amazon.com"
+      ]
     }
-  ]
+  ],
+  "live_searches_per_minute": 30
 }

@@ -110,3 +110,23 @@ test('a malformed escape in the path returns 404, not a server error', async () 
     server.close();
   }
 });
+
+test('scheduled refresh skips live store sources', async () => {
+  const { createApp } = await import('../src/server.js');
+  const { openDb } = await import('../src/db.js');
+  let storeCalls = 0;
+  const config = {
+    sources: [
+      { id: 'posts', name: 'Posts', adapter: 'fake', enabled: true, allowed_domains: ['example.com'] },
+      { id: 'store', name: 'Store', adapter: 'store', enabled: true, live: true, allowed_domains: ['example.com'] },
+    ],
+  };
+  const adapters = {
+    fake: { fetchItems: async () => [] },
+    store: { fetchItems: async () => { storeCalls += 1; return []; }, search: async () => { storeCalls += 1; return []; }, isConfigured: () => true },
+  };
+  const app = createApp({ db: openDb(), config, adapters });
+  const results = await app.refresh();
+  assert.deepEqual(results.map((r) => r.source), ['posts']);
+  assert.equal(storeCalls, 0);
+});

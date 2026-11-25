@@ -1,0 +1,57 @@
+{
+  "from": 1,
+  "to": 4,
+  "total": 4,
+  "currentPage": 1,
+  "totalPages": 1,
+  "products": [
+    {
+      "sku": 1000001,
+      "name": "Example Widget Pro 500 - Black (fictional product)",
+      "salePrice": 199.99,
+      "regularPrice": 199.99,
+      "onSale": false,
+      "url": "https://api.bestbuy.com/click/-/1000001/pdp",
+      "image": "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/1000/1000001_sd.jpg",
+      "onlineAvailability": true,
+      "shippingCost": 0,
+      "freeShipping": true
+    },
+    {
+      "sku": 1000002,
+      "name": "Sample Gadget Mini 2-Pack (fictional product)",
+      "salePrice": 79.99,
+      "regularPrice": 109.99,
+      "onSale": true,
+      "url": "https://api.bestbuy.com/click/-/1000002/pdp",
+      "image": "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/1000/1000002_sd.jpg",
+      "onlineAvailability": true,
+      "shippingCost": 5.99,
+      "freeShipping": false
+    },
+    {
+      "sku": 1000003,
+      "name": "Demo Gizmo Max (fictional product, no price)",
+      "salePrice": null,
+      "regularPrice": null,
+      "onSale": false,
+      "url": "https://api.bestbuy.com/click/-/1000003/pdp",
+      "image": "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/1000/1000003_sd.jpg",
+      "onlineAvailability": true,
+      "shippingCost": 0,
+      "freeShipping": false
+    },
+    {
+      "sku": 1000004,
+      "name": "Placeholder Gear Set (fictional product, not sold online)",
+      "salePrice": 59.99,
+      "regularPrice": 59.99,
+      "onSale": false,
+      "url": "https://api.bestbuy.com/click/-/1000004/pdp",
+      "image": "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/1000/1000004_sd.jpg",
+      "onlineAvailability": false,
+      "shippingCost": 0,
+      "freeShipping": false
+    }
+  ]
+}

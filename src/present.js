@@ -3,6 +3,7 @@
 
 const TRUST = {
   lead: { label: 'Lead', note: 'Posted price, not checked at checkout.' },
+  listed: { label: 'Store price', note: 'From the store’s own listing when we last read it. It can still change in the cart.' },
   confirmed: { label: 'Confirmed', note: 'Confirmed by the seller.' },
   expected: { label: 'Expected', note: 'Announced or rumoured. Not live yet.' },
 };
@@ -37,6 +38,7 @@ export function present(item, sources, now) {
     title: item.title,
     summary: item.summary,
     url: item.url,
+    image_url: item.image_url ?? null,
     merchant: item.merchant,
     category: item.category,
     trip_type: item.trip_type,
@@ -66,6 +68,13 @@ export function present(item, sources, now) {
   };
 }
 
+/** Shape one live search result (not stored in the database) like any other item. */
+export function presentLive(norm, source, now) {
+  const item = { ...norm, id: `live:${source.id}:${norm.external_id}` };
+  const row = { source_name: source.name, source_url: norm.source_url, price_cents: norm.price_cents, posted_at: norm.posted_at };
+  return present(item, [row], now);
+}
+
 /** Every live item of one kind, lowest posted price first. */
 export function listItems(db, kind, now) {
   const items = db.prepare('SELECT * FROM items WHERE kind = ?').all(kind);
@@ -93,6 +102,7 @@ export function sourceStatus(db, config) {
       name: s.name,
       enabled: Boolean(s.enabled),
       sample: Boolean(s.sample),
+      live: Boolean(s.live),
       last_fetch: run?.started_at ?? null,
       ok: run ? Boolean(run.ok) : null,
       item_count: run?.item_count ?? 0,

@@ -2,7 +2,7 @@ import { cleanText, safeUrl, canonicalUrl, cents, isoDate } from './validate.js'
 
 export const CATEGORIES = ['Electronics', 'Home', 'Outdoors', 'Apparel', 'Tools', 'Other'];
 export const TRIP_TYPES = ['ski', 'lifts', 'beach', 'cruise', 'stays'];
-const STATUSES = ['lead', 'confirmed', 'expected'];
+const STATUSES = ['lead', 'listed', 'confirmed', 'expected'];
 const ELIGIBILITY = ['everyone', 'first_responder'];
 
 /**
@@ -31,6 +31,8 @@ export function normalize(raw, source, now) {
     title,
     summary: cleanText(raw.summary, 160),
     url,
+    // Photos may come from a separate image host, so sources can list image_domains.
+    image_url: raw.image_url ? safeUrl(raw.image_url, source.image_domains ?? allowed) : null,
     merchant: cleanText(raw.merchant, 80),
     category: CATEGORIES.includes(raw.category) ? raw.category : 'Other',
     trip_type: kind === 'trip' && TRIP_TYPES.includes(raw.trip_type) ? raw.trip_type : null,
@@ -63,9 +65,9 @@ export function storeItems(db, source, rawItems, now) {
   const findSource = db.prepare('SELECT item_id FROM item_sources WHERE source = ? AND external_id = ?');
   const findItem = db.prepare('SELECT id FROM items WHERE merge_key = ?');
   const insertItem = db.prepare(`INSERT INTO items
-    (merge_key, kind, title, summary, url, merchant, category, trip_type, was_price_cents, status,
+    (merge_key, kind, title, summary, url, image_url, merchant, category, trip_type, was_price_cents, status,
      eligibility, verification, extra_costs, stock_checked, affiliate, expires_at, first_seen, last_seen)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   const touchItem = db.prepare('UPDATE items SET last_seen = ?, expires_at = COALESCE(?, expires_at) WHERE id = ?');
   const upsertSource = db.prepare(`INSERT INTO item_sources
     (item_id, source, source_name, external_id, source_url, price_cents, posted_at, fetched_at)
@@ -86,7 +88,7 @@ export function storeItems(db, source, rawItems, now) {
       } else {
         itemId = Number(
           insertItem.run(
-            item.merge_key, item.kind, item.title, item.summary, item.url, item.merchant, item.category,
+            item.merge_key, item.kind, item.title, item.summary, item.url, item.image_url, item.merchant, item.category,
             item.trip_type, item.was_price_cents, item.status, item.eligibility, item.verification,
             item.extra_costs, item.stock_checked, item.affiliate, item.expires_at, stamp, stamp,
           ).lastInsertRowid,
@@ -129,7 +131,7 @@ export async function refreshAll(db, config, adapters, now, { timeoutMs = 25_000
   return results;
 }
 
-function withTimeout(promise, ms) {
+export function withTimeout(promise, ms) {
   let timer;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error(`Timed out after ${ms / 1000}s`)), ms);

@@ -6,6 +6,10 @@ import { openDb } from './db.js';
 import { refreshAll } from './ingest.js';
 import { listItems, sourceStatus } from './present.js';
 import { fixtureAdapter } from './adapters/fixture.js';
+import { createSearch } from './search.js';
+import { ebayAdapter } from './adapters/ebay.js';
+import { bestbuyAdapter } from './adapters/bestbuy.js';
+import { amazonAdapter } from './adapters/amazon.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROOT, 'public');
@@ -17,19 +21,20 @@ const TYPES = {
   '.json': 'application/json; charset=utf-8',
 };
 const SECURITY_HEADERS = {
-  'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'self'; img-src 'self' data: https:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
 };
 
 /** Build the request handler. Everything it needs is passed in, so tests can drive it. */
-export function createApp({ db, config, adapters, now = () => new Date() }) {
+export function createApp({ db, config, adapters, env = {}, now = () => new Date(), fetchImpl = fetch }) {
+  const searcher = createSearch({ db, config, adapters, env, now, fetchImpl });
   const cooldownMs = (config.refresh_cooldown_seconds ?? 60) * 1000;
   let lastRefresh = 0;
   let refreshing = null;
 
   async function refresh() {
-    refreshing ??= refreshAll(db, config, adapters, now()).finally(() => {
+    refreshing ??= refreshAll(db, { ...config, sources: config.sources.filter((s) => !s.live) }, adapters, now()).finally(() => {
       refreshing = null;
     });
     return refreshing;
@@ -53,12 +58,16 @@ export function createApp({ db, config, adapters, now = () => new Date() }) {
         const kind = url.searchParams.get('kind') === 'trip' ? 'trip' : 'deal';
         return send(res, 200, { as_of: now().toISOString(), items: listItems(db, kind, now()) });
       }
+      if (url.pathname === '/api/search' && req.method === 'GET') {
+        const kind = url.searchParams.get('kind') === 'trip' ? 'trip' : 'deal';
+        return send(res, 200, await searcher.search(url.searchParams.get('q'), kind));
+      }
       if (url.pathname === '/api/status' && req.method === 'GET') {
-        const sources = sourceStatus(db, config);
+        const sources = sourceStatus(db, config).map((s) => (s.live ? { ...s, connected: searcher.isConnected(config.sources.find((c) => c.id === s.id)) } : s));
         const enabled = sources.filter((s) => s.enabled);
         return send(res, 200, {
           as_of: now().toISOString(),
-          sample_only: enabled.length > 0 && enabled.every((s) => s.sample),
+          sample_only: enabled.length > 0 && enabled.every((s) => s.sample || (s.live && !s.connected)),
           sources,
         });
       }
@@ -93,7 +102,7 @@ export function createApp({ db, config, adapters, now = () => new Date() }) {
     }
   }
 
-  return { handle, refresh };
+  return { handle, refresh, search: searcher.search };
 }
 
 async function main() {
@@ -106,7 +115,8 @@ async function main() {
     await mkdir(path.dirname(dbPath), { recursive: true });
   }
   const db = openDb(dbPath);
-  const app = createApp({ db, config, adapters: { fixture: fixtureAdapter } });
+  const adapters = { fixture: fixtureAdapter, ebay: ebayAdapter, bestbuy: bestbuyAdapter, amazon: amazonAdapter };
+  const app = createApp({ db, config, adapters, env: process.env });
 
   await app.refresh();
   setInterval(() => app.refresh().catch(console.error), (config.fetch_interval_minutes ?? 120) * 60_000).unref();

@@ -26,7 +26,7 @@ const ICONS = {
   done: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
 };
 
-const state = { kind: 'deal', sort: 'price', type: 'all', saved: false, responder: false, q: '', showDone: false, items: [], loading: true, error: '' };
+const state = { kind: 'deal', sort: 'price', type: 'all', saved: false, responder: false, q: '', showDone: false, items: [], found: null, loading: true, error: '' };
 const prefs = loadPrefs();
 const $ = (id) => document.getElementById(id);
 
@@ -110,15 +110,31 @@ function card(item) {
   const node = el('article', 'card' + (done ? ' is-done' : ''));
 
   // Photo area with the price on it. Feeds with photos fill this; until then, a tinted tile.
-  const photo = outLink(el('a', `photo photo--art photo--${group in ICONS ? group : 'Other'}`), item.url, item.affiliate);
+  const photo = outLink(el('a', `photo photo--${group in ICONS ? group : 'Other'}`), item.url, item.affiliate);
   photo.setAttribute('aria-label', `${money(item.price_cents)}: ${item.title}`);
   const art = el('span', 'photo__art');
   art.append(icon(ICONS[group] ?? ICONS.Other));
+  const img = item.image_url && safeHref(item.image_url) !== '#' ? el('img') : null;
+  if (img) {
+    img.src = item.image_url;
+    img.alt = '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.referrerPolicy = 'no-referrer';
+    img.addEventListener('error', () => {
+      img.remove();
+      photo.classList.add('photo--art');
+    });
+    photo.append(img);
+    art.hidden = true;
+  } else {
+    photo.classList.add('photo--art');
+  }
   const price = el('span', 'photo__price');
   if (item.kind === 'trip') price.append(el('small', '', 'from'));
   price.append(document.createTextNode(money(item.price_cents)));
   const flags = el('span', 'photo__flags');
-  if (item.trust.status !== 'lead') flags.append(el('span', `flag flag--${item.trust.status}`, item.trust.label));
+  if (item.trust.status !== 'lead' && item.trust.status !== 'listed') flags.append(el('span', `flag flag--${item.trust.status}`, item.trust.label));
   if (item.percent_off_stated) flags.append(el('span', 'flag', `${item.percent_off_stated}% off stated`));
   if (item.expires_at) flags.append(el('span', 'flag', endsLabel(item.expires_at)));
   photo.append(art, flags, price);
@@ -188,8 +204,9 @@ function stateBox(titleText, text, action) {
 }
 
 function visibleItems() {
-  const words = state.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const list = state.items.filter((item) => {
+  // After a store search the server has already matched the words.
+  const words = state.found ? [] : state.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const list = (state.found ? state.found.items : state.items).filter((item) => {
     if (!state.showDone && prefs.done.includes(item.id)) return false;
     if (state.saved && !prefs.saved.includes(item.id)) return false;
     if (state.responder && item.eligibility !== 'first_responder') return false;
@@ -250,6 +267,7 @@ function render() {
   }
 
   const list = visibleItems();
+  renderSearchNote();
   $('count').textContent = String(list.length);
   $('count').setAttribute('aria-label', `${list.length} ${noun}`);
   const doneCount = state.items.filter((i) => prefs.done.includes(i.id)).length;
@@ -264,7 +282,7 @@ function render() {
       action = el('button', 'btn btn--ghost', 'Clear search and filters');
       action.type = 'button';
       action.addEventListener('click', () => {
-        Object.assign(state, { q: '', saved: false, responder: false, type: 'all' });
+        Object.assign(state, { q: '', found: null, saved: false, responder: false, type: 'all' });
         $('search').value = '';
         renderPills();
         render();
@@ -286,8 +304,44 @@ function render() {
   board.replaceChildren(...list.map(card));
 }
 
+// One line saying where the search looked, in plain words.
+function renderSearchNote() {
+  const note = $('search-note');
+  const f = state.found;
+  note.hidden = !f;
+  if (!f) return;
+  const parts = [];
+  if (f.searched.length) parts.push(`Searched ${f.searched.join(', ')} and posted listings.`);
+  else parts.push('Searched posted listings.');
+  if (f.failed.length) parts.push(`${f.failed.join(', ')} did not load. Other prices are still here.`);
+  if (f.not_connected.length) parts.push(`Not connected yet: ${f.not_connected.join(', ')}.`);
+  if (f.limited) parts.push('Too many searches this minute. Try again shortly.');
+  note.textContent = parts.join(' ');
+  note.classList.toggle('alert', f.failed.length > 0 || f.limited);
+}
+
+async function searchStores() {
+  const q = $('search').value.trim();
+  state.q = q;
+  state.found = null;
+  if (q.length < 2) return render();
+  state.loading = true;
+  render();
+  try {
+    const res = await fetch(`/api/search?kind=${state.kind}&q=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error(`Server replied ${res.status}`);
+    state.found = await res.json();
+  } catch {
+    state.found = null;
+    toast('Store search failed. Showing posted listings that match.');
+  }
+  state.loading = false;
+  render();
+}
+
 async function load() {
   state.loading = true;
+  state.found = null;
   state.error = '';
   render();
   try {
@@ -315,8 +369,8 @@ async function loadStatus() {
     $('sources').replaceChildren(
       ...enabled.map((s) => {
         const li = el('li');
-        const detail = s.ok === null ? 'not fetched yet' : s.ok ? `${s.item_count} listings, fetched ${when(s.last_fetch)}` : `did not load: ${s.error || 'unknown error'}`;
-        li.append(el('span', `dot ${s.ok === true ? 'dot--ok' : s.ok === false ? 'dot--bad' : ''}`), el('strong', '', s.name), el('span', '', detail));
+        const detail = s.live ? (s.connected ? 'connected, searched when you press Search' : 'not connected yet (needs a key)') : s.ok === null ? 'not fetched yet' : s.ok ? `${s.item_count} listings, fetched ${when(s.last_fetch)}` : `did not load: ${s.error || 'unknown error'}`;
+        li.append(el('span', `dot ${s.ok === true || s.connected ? 'dot--ok' : s.ok === false ? 'dot--bad' : ''}`), el('strong', '', s.name), el('span', '', detail));
         return li;
       }),
     );
@@ -354,7 +408,7 @@ function toast(message) {
 }
 
 function selectTab(kind) {
-  Object.assign(state, { kind, type: 'all', q: '' });
+  Object.assign(state, { kind, type: 'all', q: '', found: null });
   for (const tab of document.querySelectorAll('.tab')) {
     const on = tab.dataset.kind === kind;
     tab.setAttribute('aria-selected', String(on));
@@ -380,12 +434,12 @@ for (const tab of document.querySelectorAll('.tab')) {
 }
 $('search-form').addEventListener('submit', (e) => {
   e.preventDefault();
-  state.q = $('search').value;
-  render();
   $('search').blur();
+  searchStores();
 });
 $('search').addEventListener('input', (e) => {
   state.q = e.target.value;
+  state.found = null; // typing filters the board; pressing Search asks the stores
   render();
 });
 $('toggle-done').addEventListener('click', () => {
