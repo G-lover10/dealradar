@@ -1,0 +1,56 @@
+{
+  "href": "https://api.ebay.com/buy/browse/v1/item_summary/search?q=example+widget&limit=4&filter=conditions%3A%7BNEW%7D%2CbuyingOptions%3A%7BFIXED_PRICE%7D&sort=price",
+  "total": 4,
+  "limit": 4,
+  "offset": 0,
+  "itemSummaries": [
+    {
+      "itemId": "v1|110000000001|0",
+      "title": "Example Widget Pro 500 (fictional product)",
+      "price": { "value": "49.99", "currency": "USD" },
+      "image": { "imageUrl": "https://i.ebayimg.com/images/g/EXAMPLE01/s-l225.jpg" },
+      "itemWebUrl": "https://www.ebay.com/itm/110000000001",
+      "seller": { "username": "example_seller_one" },
+      "buyingOptions": ["FIXED_PRICE"],
+      "shippingOptions": [
+        { "shippingCostType": "FIXED", "shippingCost": { "value": "0.00", "currency": "USD" } }
+      ]
+    },
+    {
+      "itemId": "v1|110000000002|0",
+      "title": "Sample Gadget Mini (fictional product)",
+      "price": { "value": "79.50", "currency": "USD" },
+      "marketingPrice": {
+        "originalPrice": { "value": "99.99", "currency": "USD" },
+        "discountPercentage": "20",
+        "discountAmount": { "value": "20.49", "currency": "USD" }
+      },
+      "image": { "imageUrl": "https://i.ebayimg.com/images/g/EXAMPLE02/s-l225.jpg" },
+      "itemWebUrl": "https://www.ebay.com/itm/110000000002",
+      "itemAffiliateWebUrl": "https://www.ebay.com/itm/110000000002?example_affiliate_tracking=1",
+      "seller": { "username": "example_seller_two" },
+      "buyingOptions": ["FIXED_PRICE"],
+      "shippingOptions": [
+        { "shippingCostType": "FIXED", "shippingCost": { "value": "5.99", "currency": "USD" } }
+      ]
+    },
+    {
+      "itemId": "v1|110000000003|0",
+      "title": "Demo Gizmo Max (fictional product, priced in euros)",
+      "price": { "value": "35.00", "currency": "EUR" },
+      "image": { "imageUrl": "https://i.ebayimg.com/images/g/EXAMPLE03/s-l225.jpg" },
+      "itemWebUrl": "https://www.ebay.com/itm/110000000003",
+      "seller": { "username": "example_seller_three" },
+      "buyingOptions": ["FIXED_PRICE"]
+    },
+    {
+      "itemId": "v1|110000000004|0",
+      "title": "Placeholder Gear Set (fictional product)",
+      "price": { "value": "120.00", "currency": "USD" },
+      "itemWebUrl": "https://www.ebay.com/itm/110000000004",
+      "seller": { "username": "example_seller_four" },
+      "buyingOptions": ["FIXED_PRICE"],
+      "shippingOptions": [{ "shippingCostType": "CALCULATED" }]
+    }
+  ]
+}

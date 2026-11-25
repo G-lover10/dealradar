@@ -19,7 +19,10 @@ let deals;
 let trips;
 
 before(async () => {
-  config = JSON.parse(await readFile(path.join(ROOT, 'config/sources.json'), 'utf8'));
+  const full = JSON.parse(await readFile(path.join(ROOT, 'config/sources.json'), 'utf8'));
+  // This file checks the sample feeds. Live store sources are searched on demand
+  // (tests/search.test.js, tests/adapters.test.js) and are never refreshed on a schedule.
+  config = { ...full, sources: full.sources.filter((s) => s.adapter === 'fixture') };
   db = openDb();
   results = await refreshAll(db, config, adapters, NOW);
   deals = listItems(db, 'deal', NOW);

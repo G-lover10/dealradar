@@ -1,0 +1,104 @@
+{
+  "searchResult": {
+    "items": [
+      {
+        "asin": "B0EXAMPL01",
+        "detailPageURL": "https://www.amazon.com/dp/B0EXAMPL01?tag=exampletag-20&linkCode=osi",
+        "images": {
+          "primary": {
+            "medium": { "height": 160, "url": "https://m.media-amazon.com/images/I/EXAMPLE01._SL160_.jpg", "width": 160 }
+          }
+        },
+        "itemInfo": { "title": { "displayValue": "Example Widget Pro 500 (fictional product)", "label": "title", "locale": "en_US" } },
+        "offersV2": {
+          "listings": [
+            {
+              "availability": { "maxOrderQuantity": 10, "minOrderQuantity": 1, "type": "IN_STOCK" },
+              "condition": { "conditionNote": "", "subCondition": "Unknown", "value": "New" },
+              "isBuyBoxWinner": true,
+              "merchantInfo": { "name": "Amazon.com" },
+              "price": {
+                "money": { "amount": 24.99, "currency": "USD", "displayAmount": "$24.99" }
+              },
+              "violatesMAP": false
+            }
+          ]
+        }
+      },
+      {
+        "asin": "B0EXAMPL02",
+        "detailPageURL": "https://www.amazon.com/dp/B0EXAMPL02?tag=exampletag-20&linkCode=osi",
+        "images": {
+          "primary": {
+            "medium": { "height": 160, "url": "https://m.media-amazon.com/images/I/EXAMPLE02._SL160_.jpg", "width": 160 }
+          }
+        },
+        "itemInfo": { "title": { "displayValue": "Sample Gadget Mini (fictional product)", "label": "title", "locale": "en_US" } },
+        "offersV2": {
+          "listings": [
+            {
+              "availability": { "maxOrderQuantity": 5, "minOrderQuantity": 1, "type": "IN_STOCK_SCARCE" },
+              "condition": { "conditionNote": "", "subCondition": "Unknown", "value": "New" },
+              "isBuyBoxWinner": true,
+              "merchantInfo": { "name": "Amazon.com" },
+              "price": {
+                "money": { "amount": 59.49, "currency": "USD", "displayAmount": "$59.49" },
+                "savingBasis": {
+                  "money": { "amount": 69.99, "currency": "USD", "displayAmount": "$69.99" },
+                  "savingBasisType": "LIST_PRICE",
+                  "savingBasisTypeLabel": "List Price"
+                },
+                "savings": {
+                  "money": { "amount": 10.5, "currency": "USD", "displayAmount": "$10.50" },
+                  "percentage": 15
+                }
+              },
+              "violatesMAP": false
+            }
+          ]
+        }
+      },
+      {
+        "asin": "B0EXAMPL03",
+        "detailPageURL": "https://www.amazon.com/dp/B0EXAMPL03?tag=exampletag-20&linkCode=osi",
+        "images": {
+          "primary": {
+            "medium": { "height": 160, "url": "https://m.media-amazon.com/images/I/EXAMPLE03._SL160_.jpg", "width": 160 }
+          }
+        },
+        "itemInfo": { "title": { "displayValue": "Demo Gizmo Max (fictional product, no featured offer)", "label": "title", "locale": "en_US" } }
+      },
+      {
+        "asin": "B0EXAMPL04",
+        "detailPageURL": "https://www.amazon.com/dp/B0EXAMPL04?tag=exampletag-20&linkCode=osi",
+        "images": {
+          "primary": {
+            "medium": { "height": 160, "url": "https://m.media-amazon.com/images/I/EXAMPLE04._SL160_.jpg", "width": 160 }
+          }
+        },
+        "itemInfo": { "title": { "displayValue": "Placeholder Gear Set (fictional product)", "label": "title", "locale": "en_US" } },
+        "offersV2": {
+          "listings": [
+            {
+              "availability": { "maxOrderQuantity": 3, "minOrderQuantity": 1, "type": "UNKNOWN" },
+              "condition": { "conditionNote": "", "subCondition": "Unknown", "value": "New" },
+              "isBuyBoxWinner": true,
+              "merchantInfo": { "name": "Example Merchant" },
+              "price": {
+                "money": { "amount": 30, "currency": "USD", "displayAmount": "$30.00" },
+                "savingBasis": {
+                  "money": { "amount": 45, "currency": "USD", "displayAmount": "$45.00" },
+                  "savingBasisType": "LOWEST_PRICE",
+                  "savingBasisTypeLabel": "Lowest Price"
+                }
+              },
+              "violatesMAP": false
+            }
+          ]
+        }
+      }
+    ],
+    "searchURL": "https://www.amazon.com/s/?field-keywords=example+widget&search-alias=aps&tag=exampletag-20&linkCode=osi",
+    "totalResultCount": 4
+  }
+}
